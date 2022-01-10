@@ -7,6 +7,7 @@ from intficpy.things import (
     Key,
     Lock,
     UnderSpace,
+    LightSource,
 )
 from intficpy.thing_base import Thing
 from intficpy.score import Achievement, Ending
@@ -80,6 +81,10 @@ opal = Thing(game, "opal")
 opal.makeUnique()
 opal.size = 25
 
+torch = LightSource(game, "torch")
+torch.consumable = True
+torch.turns_left = 5
+
 # ROOMS
 
 # Start Room (Shack Interior)
@@ -90,6 +95,7 @@ startroom = Room(
 )
 
 me.moveTo(startroom)
+torch.moveTo(startroom)
 
 # ABSTRACT CONCEPTS
 # Use "Abstract" items to create topics of discussion (for ask/tell Topics) that do not
@@ -168,6 +174,7 @@ beach.entrance = shackdoor
 # Attic
 
 attic = Room(game, "Shack, attic", "You are in a dim, cramped attic. ")
+attic.dark = True
 shackladder = LadderConnector(game, startroom, attic)
 shackladder.entrance_a.description = (
     "Against the north wall is a ladder leading up to the attic. "

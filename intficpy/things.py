@@ -453,13 +453,8 @@ class LightSource(Thing):
         Runs every turn while a consumable light source is active, to keep track of
         time left.
         """
-        from .verb import helpVerb, helpVerbVerb, aboutVerb
-
         if not (
-            game.parser.previous_command.verb == helpVerb
-            or game.parser.previous_command.verb == helpVerbVerb
-            or game.parser.previous_command.verb == aboutVerb
-            or game.parser.previous_command.ambiguous
+            game.parser.previous_command.ambiguous
             or game.parser.previous_command.err
         ):
             self.turns_left = self.turns_left - 1
