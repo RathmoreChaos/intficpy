@@ -8,6 +8,8 @@ from intficpy.things import (
     Lock,
     UnderSpace,
     LightSource,
+    Readable,
+    Book,
 )
 from intficpy.thing_base import Thing
 from intficpy.score import Achievement, Ending
@@ -79,62 +81,117 @@ rustykey = Key(game)
 rustykey.setAdjectives(["rusty"])
 
 opal = Thing(game, "opal")
+opal.adjectives = ["the"]
 opal.makeUnique()
 opal.size = 25
 
 torch = LightSource(game, "torch")
-torch.consumable = True
-torch.turns_left = 10
-torch.light(game)
+
+paper_desc = 'It reads "Good, you were able to read this.  Now you need to work on reading the book."'
+paper = Readable(game, "paper", paper_desc)
+paper.full_name = "piece of paper"
+
+#book_desc = 'The title page reads "Introduction to Hermetic Magic by Bonisagus"'
+book = Book(game, "book")   #, book_desc)
+book.adjectives=["ornate", "leather"]
+book.x_description = 'The book is in excellent condition, in fact it looks brand new.  On the spine is written "Introduction to Hermetic Magic by Bonisagus". '
+book.pages = [
+'''
+Page 1
+
+An Introduction to Hermetic Magic
+       Written by Bonisagus
+''',
+'''
+Page 2
+
+Hermetic "Techniques" (magical verbs)
+
+Creo  - Create
+Intellego - Percieve
+Muto  - Transform
+Perdo - Destroy
+Rego  - Control
+''',
+'''
+Page 3
+
+Hermetic "Forms" (magical nouns)
+
+Animal - affect living things that are neither plant nor human
+Auram  - affect gases, wind and weather
+Aquam  - affect any liquid except blood
+Corpus - affect human bodies
+Herbam - affect plant material, living or dead
+Ignem  - affect fire, heat or light
+Imaginem - affect images, sounds, smells and other sensations
+Mentem - affect the human mind
+Terram - affect earth (dirt, stone, metal, etc)
+Vim    - affect magic, and other forms of power (divine, infernal, faerie)
+''',
+'''
+Page 4
+
+Casting spells
+'''
+]
+
+def readText(self, game):
+    """Called when the Transparent instance is dobj for verb look through
+            Creators should overwrite for more complex behaviour """
+    game.addTextToEvent("turn", self.pages[self.current_page])
+    if self.current_page == len(self.pages) - 1:
+        self.current_page = 0
+    else:
+        self.current_page += 1
+
+def makeOpen(self):
+    self.is_open = True
+    self.current_page = 0
 
 
-nowhere = Room(
-    game,
-    "Empty Void",
-    "You are standing in an empty void.  There is a big sign that reads 'If you are here, then something has gone seriously wong.'"
-)
+comment = '''
+# PUT/SET ON
+# transitive verb with indirect object
+class SetOnVerb(IndirectObjectVerb):
+    word = "set"
+    list_word = "set on"
+    synonyms = ["put", "drop", "place"]
+    syntax = [
+        ["put", "<dobj>", "on", "<iobj>"],
+        ["set", "<dobj>", "on", "<iobj>"],
+        ["place", "<dobj>", "on", "<iobj>"],
+        ["drop", "<dobj>", "on", "<iobj>"],
+    ]
+    dscope = "inv"
+    itype = "Surface"
+    iscope = "room"
+    preposition = ["on"]
 
-def countdownTemporaryThing(self, game):  # Can I define this outside a class??
-    """
-    Runs every turn while a temporary thing "exists", to keep track of
-    time left.
-    """
-    if not (
-        game.parser.previous_command.ambiguous
-        or game.parser.previous_command.err
-    ):
-        self.turns_remaining = self.turns_remaining - 1
-        if self.turns_remaining == 0:
-            if game.me.getOutermostLocation() == self.getOutermostLocation():
-                game.addTextToEvent("turn", "The " + self.name + " fades away.")
-            self.moveTo(nowhere)
+    def verbFunc(self, game, dobj, iobj, skip=False):
+        """
+        Put a Thing on a Surface
+        """
+        if dobj == iobj:
+            game.addTextToEvent("turn", "You cannot set something on itself. ")
+            return False
 
-            if self.consumeLightSourceDaemon in game.daemons.active:
-                game.daemons.remove(self.consumeLightSourceDaemon)
-        elif game.me.getOutermostLocation() == self.getOutermostLocation():
-            if self.turns_remaining < 5:
-                game.addTextToEvent(
-                    "turn",
-                    "The " + self.name + " has " + str(self.turns_remaining) + " turns left. ",
-                )
-            elif (self.turns_remaining % 5) == 0:
-                game.addTextToEvent(
-                    "turn",
-                    "The " + self.name + " has " + str(self.turns_remaining) + " turns left. ",
-                )
+        super().verbFunc(game, dobj, iobj, skip=skip)
+
+        if not iobj.playerAboutToAddItem(dobj, "on", event="turn"):
+            return False
+
+        return iobj.playerAddsItem(
+            dobj,
+            "on",
+            event="turn",
+            success_msg=f"You set {dobj.lowNameArticle(True)} on {iobj.lowNameArticle(True)}.",
+        )
+'''
 
 
-diameter = 10
-
-magicalFlame = LightSource(game, "flame")
-magicalFlame.setAdjectives(["magical"])
-magicalFlame.player_can_light = False
-magicalFlame.is_lit = True
-
-magicalFlame.turns_remaining = diameter
-Thing.countdownTemporaryThing = countdownTemporaryThing
-magicalFlame.tempThingDaemon = Daemon(game, magicalFlame.countdownTemporaryThing)
-game.daemons.add(magicalFlame.tempThingDaemon)
+Book.readText = readText
+Book.makeOpen = makeOpen
 
 
 # ROOMS
@@ -147,8 +204,9 @@ startroom = Room(
 )
 
 me.moveTo(startroom)
-magicalFlame.moveTo(startroom)
 torch.moveTo(startroom)
+paper.moveTo(startroom)
+book.moveTo(startroom)
 
 # ABSTRACT CONCEPTS
 # Use "Abstract" items to create topics of discussion (for ask/tell Topics) that do not
@@ -232,7 +290,8 @@ shackladder = LadderConnector(game, startroom, attic)
 shackladder.entrance_a.description = (
     "Against the north wall is a ladder leading up to the attic. "
 )
-startroom.north = shackladder
+#startroom.north = shackladder
+startroom.up = shackladder
 silverkey.moveTo(attic)
 
 # CHARACTERS
